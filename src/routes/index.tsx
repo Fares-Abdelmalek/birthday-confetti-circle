@@ -208,7 +208,7 @@ function PersonRow({
 }: {
   profile: Profile;
   onGift: () => void;
-  me?: string;
+  me: string | undefined;
 }) {
   const age = turningAge(profile.birth_date);
   return (
