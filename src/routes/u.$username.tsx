@@ -188,13 +188,7 @@ function ProfilePage() {
                   >
                     <p className="text-lg leading-none">{cardGlyph(gift.card_style)}</p>
                     <p className="mt-2 text-[13px] leading-snug font-semibold">{gift.message}</p>
-                    <p className="mt-2 text-[10px] opacity-70">
-                      —{" "}
-                      {(gift.sender as { full_name: string | null; username: string | null } | null)
-                        ?.full_name ??
-                        (gift.sender as { username: string | null } | null)?.username ??
-                        "a friend"}
-                    </p>
+                    <p className="mt-2 text-[10px] opacity-70">— {gift.senderName}</p>
                   </article>
                 ))}
                 {gifts?.length === 0 && (
