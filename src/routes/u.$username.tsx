@@ -62,13 +62,30 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("gifts")
-        .select("id, card_style, message, created_at, sender:profiles!gifts_sender_id_fkey(username, full_name)")
+        .select("id, card_style, message, created_at, sender_id")
         .eq("recipient_id", profile!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      const senderIds = [...new Set(rows.map((r) => r.sender_id))];
+      const senders = senderIds.length
+        ? ((
+            await supabase
+              .from("profiles")
+              .select("id, full_name, username")
+              .in("id", senderIds)
+          ).data ?? [])
+        : [];
+      return rows.map((row) => ({
+        ...row,
+        senderName:
+          senders.find((s) => s.id === row.sender_id)?.full_name ??
+          senders.find((s) => s.id === row.sender_id)?.username ??
+          "a friend",
+      }));
     },
   });
+
 
   const { data: wishlist } = useQuery({
     queryKey: ["wishlist", profile?.id],
