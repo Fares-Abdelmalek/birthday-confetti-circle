@@ -113,7 +113,10 @@ function SettingsPage() {
       title: wishTitle.trim(),
       url: wishUrl.trim() || null,
     });
-    if (error) return toast.error("Couldn't add that item.");
+    if (error) {
+      toast.error("Couldn't add that item.");
+      return;
+    }
     setWishTitle("");
     setWishUrl("");
     qc.invalidateQueries({ queryKey: ["wishlist", user.id] });

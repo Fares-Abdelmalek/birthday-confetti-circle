@@ -62,13 +62,30 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("gifts")
-        .select("id, card_style, message, created_at, sender:profiles!gifts_sender_id_fkey(username, full_name)")
+        .select("id, card_style, message, created_at, sender_id")
         .eq("recipient_id", profile!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      const senderIds = [...new Set(rows.map((r) => r.sender_id))];
+      const senders = senderIds.length
+        ? ((
+            await supabase
+              .from("profiles")
+              .select("id, full_name, username")
+              .in("id", senderIds)
+          ).data ?? [])
+        : [];
+      return rows.map((row) => ({
+        ...row,
+        senderName:
+          senders.find((s) => s.id === row.sender_id)?.full_name ??
+          senders.find((s) => s.id === row.sender_id)?.username ??
+          "a friend",
+      }));
     },
   });
+
 
   const { data: wishlist } = useQuery({
     queryKey: ["wishlist", profile?.id],
@@ -171,13 +188,7 @@ function ProfilePage() {
                   >
                     <p className="text-lg leading-none">{cardGlyph(gift.card_style)}</p>
                     <p className="mt-2 text-[13px] leading-snug font-semibold">{gift.message}</p>
-                    <p className="mt-2 text-[10px] opacity-70">
-                      —{" "}
-                      {(gift.sender as { full_name: string | null; username: string | null } | null)
-                        ?.full_name ??
-                        (gift.sender as { username: string | null } | null)?.username ??
-                        "a friend"}
-                    </p>
+                    <p className="mt-2 text-[10px] opacity-70">— {gift.senderName}</p>
                   </article>
                 ))}
                 {gifts?.length === 0 && (
