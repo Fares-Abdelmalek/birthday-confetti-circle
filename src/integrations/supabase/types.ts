@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      gift_orders: {
+        Row: {
+          address_line1: string
+          address_line2: string | null
+          amount_cents: number
+          city: string
+          country: string
+          created_at: string
+          currency: string
+          id: string
+          message: string | null
+          postal_code: string
+          product_id: string | null
+          recipient_id: string
+          sender_id: string
+          ship_to_name: string
+          status: string
+          updated_at: string
+          wishlist_item_id: string | null
+        }
+        Insert: {
+          address_line1: string
+          address_line2?: string | null
+          amount_cents: number
+          city: string
+          country: string
+          created_at?: string
+          currency?: string
+          id?: string
+          message?: string | null
+          postal_code: string
+          product_id?: string | null
+          recipient_id: string
+          sender_id: string
+          ship_to_name: string
+          status?: string
+          updated_at?: string
+          wishlist_item_id?: string | null
+        }
+        Update: {
+          address_line1?: string
+          address_line2?: string | null
+          amount_cents?: number
+          city?: string
+          country?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          message?: string | null
+          postal_code?: string
+          product_id?: string | null
+          recipient_id?: string
+          sender_id?: string
+          ship_to_name?: string
+          status?: string
+          updated_at?: string
+          wishlist_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "gift_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_orders_wishlist_item_id_fkey"
+            columns: ["wishlist_item_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gift_products: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          emoji: string
+          id: string
+          image_url: string | null
+          name: string
+          price_cents: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          emoji?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          price_cents: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          emoji?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gifts: {
         Row: {
           card_style: string
@@ -74,6 +191,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       wishlist_items: {
         Row: {
           created_at: string
@@ -106,10 +244,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -236,6 +380,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
