@@ -25,9 +25,8 @@ export const Route = createFileRoute("/_authenticated/store")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    to: typeof search["to"] === "string" ? search["to"] : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { to?: string } =>
+    typeof search["to"] === "string" ? { to: search["to"] } : {},
   component: StorePage,
 });
 
