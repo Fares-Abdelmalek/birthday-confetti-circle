@@ -19,18 +19,23 @@ export type Database = {
           address_line1: string
           address_line2: string | null
           amount_cents: number
+          card_last4: string | null
           city: string
           country: string
           created_at: string
           currency: string
           id: string
           message: string | null
+          order_group_id: string | null
+          paid_at: string | null
           postal_code: string
           product_id: string | null
+          quantity: number
           recipient_id: string
           sender_id: string
           ship_to_name: string
           status: string
+          tracking_code: string | null
           updated_at: string
           wishlist_item_id: string | null
         }
@@ -38,18 +43,23 @@ export type Database = {
           address_line1: string
           address_line2?: string | null
           amount_cents: number
+          card_last4?: string | null
           city: string
           country: string
           created_at?: string
           currency?: string
           id?: string
           message?: string | null
+          order_group_id?: string | null
+          paid_at?: string | null
           postal_code: string
           product_id?: string | null
+          quantity?: number
           recipient_id: string
           sender_id: string
           ship_to_name: string
           status?: string
+          tracking_code?: string | null
           updated_at?: string
           wishlist_item_id?: string | null
         }
@@ -57,18 +67,23 @@ export type Database = {
           address_line1?: string
           address_line2?: string | null
           amount_cents?: number
+          card_last4?: string | null
           city?: string
           country?: string
           created_at?: string
           currency?: string
           id?: string
           message?: string | null
+          order_group_id?: string | null
+          paid_at?: string | null
           postal_code?: string
           product_id?: string | null
+          quantity?: number
           recipient_id?: string
           sender_id?: string
           ship_to_name?: string
           status?: string
+          tracking_code?: string | null
           updated_at?: string
           wishlist_item_id?: string | null
         }
