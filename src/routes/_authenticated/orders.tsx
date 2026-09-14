@@ -127,9 +127,15 @@ function OrdersPage() {
   const shown = tab === "sent" ? sent : received;
 
   async function advance(id: string, status: string) {
-    const patch: Record<string, unknown> = { status };
-    if (status === "shipped") patch["tracking_code"] = `BC-${id.slice(0, 8).toUpperCase()}`;
-    const { error } = await supabase.from("gift_orders").update(patch).eq("id", id);
+    const { error } = await supabase
+      .from("gift_orders")
+      .update({
+        status,
+        ...(status === "shipped"
+          ? { tracking_code: `BC-${id.slice(0, 8).toUpperCase()}` }
+          : {}),
+      })
+      .eq("id", id);
     if (error) {
       toast.error("Couldn't update that order.");
       return;
