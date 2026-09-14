@@ -168,7 +168,7 @@ function ProfilePage() {
                   </button>
                   <Link
                     to="/store"
-                    search={{ to: profile.username ?? undefined }}
+                    search={profile.username ? { to: profile.username } : {}}
                     className="rounded-xl bg-secondary/70 px-4 py-3 text-sm font-medium ring-1 ring-border"
                   >
                     Gift store
