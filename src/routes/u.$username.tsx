@@ -159,12 +159,21 @@ function ProfilePage() {
               </div>
               {profile.bio && <p className="mt-3 text-sm text-muted-foreground">{profile.bio}</p>}
               {user && user.id !== profile.id && (
-                <button
-                  onClick={() => setGiftOpen(true)}
-                  className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
-                >
-                  Send gift
-                </button>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => setGiftOpen(true)}
+                    className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
+                  >
+                    Send card
+                  </button>
+                  <Link
+                    to="/store"
+                    search={profile.username ? { to: profile.username } : {}}
+                    className="rounded-xl bg-secondary/70 px-4 py-3 text-sm font-medium ring-1 ring-border"
+                  >
+                    Gift store
+                  </Link>
+                </div>
               )}
               {user?.id === profile.id && (
                 <Link

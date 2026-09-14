@@ -14,6 +14,7 @@ export function AppHeader({ user, alerts = 0 }: { user: User | null; alerts?: nu
         <div className="flex items-center gap-2">
           <Link
             to="/store"
+            search={{}}
             className="rounded-full bg-secondary/70 px-3 py-1.5 text-xs font-medium ring-1 ring-border"
           >
             Store
