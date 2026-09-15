@@ -7,6 +7,7 @@ import { PersonAvatar } from "@/components/Avatar";
 import { AppHeader } from "@/components/AppHeader";
 import { SendGiftSheet } from "@/components/SendGiftSheet";
 import { Confetti } from "@/components/Confetti";
+import { statusLabel } from "@/lib/cart";
 import {
   cardClasses,
   cardGlyph,
@@ -86,6 +87,42 @@ function ProfilePage() {
     },
   });
 
+
+  const { data: giftOrders } = useQuery({
+    queryKey: ["profile-gift-orders", profile?.id],
+    enabled: !!profile?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gift_orders")
+        .select("id, status, quantity, message, created_at, sender_id, product_id")
+        .eq("recipient_id", profile!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = data ?? [];
+      const productIds = [...new Set(rows.map((r) => r.product_id).filter(Boolean))] as string[];
+      const senderIds = [...new Set(rows.map((r) => r.sender_id))];
+      const [products, senders] = await Promise.all([
+        productIds.length
+          ? supabase.from("gift_products").select("id, name, emoji").in("id", productIds)
+          : Promise.resolve({ data: [] as { id: string; name: string; emoji: string }[] }),
+        senderIds.length
+          ? supabase.from("profiles").select("id, full_name, username").in("id", senderIds)
+          : Promise.resolve({
+              data: [] as { id: string; full_name: string | null; username: string | null }[],
+            }),
+      ]);
+      return rows.map((r) => {
+        const p = (products.data ?? []).find((x) => x.id === r.product_id);
+        const s = (senders.data ?? []).find((x) => x.id === r.sender_id);
+        return {
+          ...r,
+          productName: p?.name ?? "Gift",
+          emoji: p?.emoji ?? "🎁",
+          senderName: s?.full_name || s?.username || "a friend",
+        };
+      });
+    },
+  });
 
   const { data: wishlist } = useQuery({
     queryKey: ["wishlist", profile?.id],
@@ -207,6 +244,42 @@ function ProfilePage() {
                 )}
               </div>
             </section>
+
+            {(giftOrders?.length ?? 0) > 0 && (
+              <section className="mt-6">
+                <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                  Real gifts · {giftOrders?.length}
+                </h2>
+                <ul className="mt-3 space-y-2">
+                  {(giftOrders ?? []).map((o) => (
+                    <li
+                      key={o.id}
+                      className="flex items-start gap-3 rounded-xl bg-card p-3 ring-1 ring-border"
+                    >
+                      <span className="text-xl">{o.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {o.productName}
+                          {o.quantity > 1 && ` ×${o.quantity}`}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          from {o.senderName}
+                          {o.message && ` · “${o.message}”`}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] ring-1 ring-border">
+                        {statusLabel(o.status)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {user?.id === profile.id && (
+                  <Link to="/orders" className="mt-2 inline-block text-xs text-ice underline">
+                    Track deliveries
+                  </Link>
+                )}
+              </section>
+            )}
 
             <section className="mt-6">
               <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">

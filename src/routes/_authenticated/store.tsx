@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { AppHeader } from "@/components/AppHeader";
 import { PersonAvatar } from "@/components/Avatar";
-import { OrderGiftSheet, money, type GiftProduct } from "@/components/OrderGiftSheet";
+import { money, type GiftProduct } from "@/components/OrderGiftSheet";
+import { useCart } from "@/lib/cart";
 import { birthdayLabel, displayName, type Profile } from "@/lib/birthday";
 
 export const Route = createFileRoute("/_authenticated/store")({
@@ -33,9 +35,8 @@ export const Route = createFileRoute("/_authenticated/store")({
 function StorePage() {
   const { to } = Route.useSearch();
   const { user } = useSession();
-  const qc = useQueryClient();
+  const { add, count, totalCents } = useCart();
   const [recipientId, setRecipientId] = useState<string | null>(null);
-  const [picked, setPicked] = useState<GiftProduct | null>(null);
   const [wishFilter, setWishFilter] = useState(false);
 
   const { data: products } = useQuery({
@@ -83,38 +84,50 @@ function StorePage() {
     },
   });
 
-  const { data: orders } = useQuery({
-    queryKey: ["my-orders", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("gift_orders")
-        .select("id, status, amount_cents, currency, ship_to_name, created_at, product_id")
-        .eq("sender_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+  const wishMatch = (p: GiftProduct) =>
+    (wishlist ?? []).find((w) => {
+      const t = w.title.toLowerCase();
+      const n = p.name.toLowerCase();
+      return t.includes(n) || n.includes(t.split(" ")[0]!);
+    }) ?? null;
 
-  const wishTitles = (wishlist ?? []).map((w) => w.title.toLowerCase());
-  const matchesWish = (p: GiftProduct) =>
-    wishTitles.some(
-      (t) => t.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(t.split(" ")[0]!),
-    );
+  const shown = (products ?? []).filter((p) => !wishFilter || wishMatch(p));
 
-  const shown = (products ?? []).filter((p) => !wishFilter || matchesWish(p));
+  function addToCart(p: GiftProduct) {
+    if (!recipient) return;
+    const match = wishMatch(p);
+    add({
+      productId: p.id,
+      name: p.name,
+      emoji: p.emoji,
+      priceCents: p.price_cents,
+      currency: p.currency,
+      recipientId: recipient.id,
+      recipientName: displayName(recipient),
+      wishlistItemId: match?.id ?? null,
+    });
+    toast.success(`${p.name} added for ${displayName(recipient)}`);
+  }
 
   return (
-    <main className="bg-aurora min-h-screen pb-20">
+    <main className="bg-aurora min-h-screen pb-28">
       <AppHeader user={user} />
 
       <div className="mx-auto max-w-md px-4">
-        <h1 className="mt-4 text-2xl font-medium tracking-tight">Gift store</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Real gifts, shipped to their door. Pick who it's for, then choose the item.
-        </p>
+        <div className="mt-4 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-medium tracking-tight">Gift store</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Real gifts, shipped to their door. Pick who it's for, then add items to your cart.
+            </p>
+          </div>
+          <Link
+            to="/orders"
+            className="mt-1 shrink-0 rounded-full bg-secondary/70 px-3 py-1.5 text-xs font-medium ring-1 ring-border"
+          >
+            Orders
+          </Link>
+        </div>
 
         <section className="mt-4">
           <p className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
@@ -150,7 +163,10 @@ function StorePage() {
               <p className="text-sm">
                 <span className="font-semibold">{displayName(recipient)}</span>
                 {recipient.birth_date && (
-                  <span className="text-muted-foreground"> · {birthdayLabel(recipient.birth_date)}</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {birthdayLabel(recipient.birth_date)}
+                  </span>
                 )}
               </p>
               {recipient.username && (
@@ -192,70 +208,51 @@ function StorePage() {
         )}
 
         <section className="mt-5 grid grid-cols-2 gap-2">
-          {shown.map((p) => (
-            <article key={p.id} className="rounded-2xl bg-card p-3 ring-1 ring-border">
-              <span className="text-2xl">{p.emoji}</span>
-              <h2 className="mt-2 text-sm leading-tight font-semibold">{p.name}</h2>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-mono text-sm text-primary">
-                  {money(p.price_cents, p.currency)}
-                </span>
-                <button
-                  onClick={() => {
-                    if (!recipient) return;
-                    setPicked(p);
-                  }}
-                  disabled={!recipient}
-                  className="rounded-lg bg-primary px-3 py-1.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-40"
-                >
-                  Send
-                </button>
-              </div>
-            </article>
-          ))}
+          {shown.map((p) => {
+            const match = recipient ? wishMatch(p) : null;
+            return (
+              <article key={p.id} className="rounded-2xl bg-card p-3 ring-1 ring-border">
+                <span className="text-2xl">{p.emoji}</span>
+                <h2 className="mt-2 text-sm leading-tight font-semibold">{p.name}</h2>
+                {match && (
+                  <p className="mt-1 text-[10px] font-medium text-mint">On their wishlist</p>
+                )}
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="font-mono text-sm text-primary">
+                    {money(p.price_cents, p.currency)}
+                  </span>
+                  <button
+                    onClick={() => addToCart(p)}
+                    disabled={!recipient}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-40"
+                  >
+                    Add
+                  </button>
+                </div>
+              </article>
+            );
+          })}
           {shown.length === 0 && (
             <p className="col-span-2 rounded-xl bg-card p-4 text-sm text-muted-foreground ring-1 ring-border">
               No items match their wishlist — turn the filter off to see everything.
             </p>
           )}
         </section>
-
-        {(orders?.length ?? 0) > 0 && (
-          <section className="mt-7">
-            <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-              My orders
-            </h2>
-            <ul className="mt-2 space-y-2">
-              {(orders ?? []).map((o) => (
-                <li
-                  key={o.id}
-                  className="flex items-center justify-between rounded-xl bg-card p-3 text-sm ring-1 ring-border"
-                >
-                  <span className="truncate">To {o.ship_to_name}</span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {money(o.amount_cents, o.currency)}
-                    </span>
-                    <span className="rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] ring-1 ring-border">
-                      {o.status.replace("_", " ")}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
 
-      {picked && recipient && user && (
-        <OrderGiftSheet
-          product={picked}
-          recipient={recipient}
-          senderId={user.id}
-          onClose={() => setPicked(null)}
-          onOrdered={() => qc.invalidateQueries({ queryKey: ["my-orders", user.id] })}
-        />
+      {count > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 backdrop-blur">
+          <Link
+            to="/checkout"
+            className="mx-auto flex max-w-md items-center justify-between rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+          >
+            <span>
+              Checkout · {count} item{count > 1 ? "s" : ""}
+            </span>
+            <span className="font-mono">{money(totalCents)}</span>
+          </Link>
+        </div>
       )}
     </main>
   );
