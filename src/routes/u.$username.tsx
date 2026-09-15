@@ -87,6 +87,42 @@ function ProfilePage() {
   });
 
 
+  const { data: giftOrders } = useQuery({
+    queryKey: ["profile-gift-orders", profile?.id],
+    enabled: !!profile?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gift_orders")
+        .select("id, status, quantity, message, created_at, sender_id, product_id")
+        .eq("recipient_id", profile!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = data ?? [];
+      const productIds = [...new Set(rows.map((r) => r.product_id).filter(Boolean))] as string[];
+      const senderIds = [...new Set(rows.map((r) => r.sender_id))];
+      const [products, senders] = await Promise.all([
+        productIds.length
+          ? supabase.from("gift_products").select("id, name, emoji").in("id", productIds)
+          : Promise.resolve({ data: [] as { id: string; name: string; emoji: string }[] }),
+        senderIds.length
+          ? supabase.from("profiles").select("id, full_name, username").in("id", senderIds)
+          : Promise.resolve({
+              data: [] as { id: string; full_name: string | null; username: string | null }[],
+            }),
+      ]);
+      return rows.map((r) => {
+        const p = (products.data ?? []).find((x) => x.id === r.product_id);
+        const s = (senders.data ?? []).find((x) => x.id === r.sender_id);
+        return {
+          ...r,
+          productName: p?.name ?? "Gift",
+          emoji: p?.emoji ?? "🎁",
+          senderName: s?.full_name || s?.username || "a friend",
+        };
+      });
+    },
+  });
+
   const { data: wishlist } = useQuery({
     queryKey: ["wishlist", profile?.id],
     enabled: !!profile?.id,
