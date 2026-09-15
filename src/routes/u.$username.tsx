@@ -7,6 +7,7 @@ import { PersonAvatar } from "@/components/Avatar";
 import { AppHeader } from "@/components/AppHeader";
 import { SendGiftSheet } from "@/components/SendGiftSheet";
 import { Confetti } from "@/components/Confetti";
+import { statusLabel } from "@/lib/cart";
 import {
   cardClasses,
   cardGlyph,
@@ -243,6 +244,42 @@ function ProfilePage() {
                 )}
               </div>
             </section>
+
+            {(giftOrders?.length ?? 0) > 0 && (
+              <section className="mt-6">
+                <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                  Real gifts · {giftOrders?.length}
+                </h2>
+                <ul className="mt-3 space-y-2">
+                  {(giftOrders ?? []).map((o) => (
+                    <li
+                      key={o.id}
+                      className="flex items-start gap-3 rounded-xl bg-card p-3 ring-1 ring-border"
+                    >
+                      <span className="text-xl">{o.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {o.productName}
+                          {o.quantity > 1 && ` ×${o.quantity}`}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          from {o.senderName}
+                          {o.message && ` · “${o.message}”`}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] ring-1 ring-border">
+                        {statusLabel(o.status)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {user?.id === profile.id && (
+                  <Link to="/orders" className="mt-2 inline-block text-xs text-ice underline">
+                    Track deliveries
+                  </Link>
+                )}
+              </section>
+            )}
 
             <section className="mt-6">
               <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
