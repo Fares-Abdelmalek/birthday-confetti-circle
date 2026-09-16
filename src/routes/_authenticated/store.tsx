@@ -38,6 +38,8 @@ function StorePage() {
   const { add, count, totalCents } = useCart();
   const [recipientId, setRecipientId] = useState<string | null>(null);
   const [wishFilter, setWishFilter] = useState(false);
+  const [cat, setCat] = useState("all");
+  const [term, setTerm] = useState("");
 
   const { data: products } = useQuery({
     queryKey: ["gift-products"],
@@ -91,7 +93,20 @@ function StorePage() {
       return t.includes(n) || n.includes(t.split(" ")[0]!);
     }) ?? null;
 
-  const shown = (products ?? []).filter((p) => !wishFilter || wishMatch(p));
+  const categories = useMemo(
+    () => ["all", ...new Set((products ?? []).map((p) => p.category ?? "other"))],
+    [products],
+  );
+  const q = term.trim().toLowerCase();
+  const shown = (products ?? [])
+    .filter((p) => !wishFilter || wishMatch(p))
+    .filter((p) => cat === "all" || (p.category ?? "other") === cat)
+    .filter(
+      (p) =>
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q),
+    );
 
   function addToCart(p: GiftProduct) {
     if (!recipient) return;
