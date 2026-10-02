@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { PersonAvatar } from "@/components/Avatar";
 import type { Profile } from "@/lib/birthday";
+import { DEFAULT_PREFS, useReminderPrefs } from "@/lib/reminders";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -223,6 +224,8 @@ function SettingsPage() {
           </button>
         </form>
 
+        {user && <ReminderSettings userId={user.id} />}
+
         <section className="mt-8">
           <h2 className="text-lg font-medium tracking-tight">Wishlist</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -278,5 +281,62 @@ function SettingsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function ReminderSettings({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data } = useReminderPrefs(userId);
+  const prefs = data ?? DEFAULT_PREFS;
+
+  async function update(next: Partial<typeof prefs>) {
+    const { error } = await supabase
+      .from("reminder_prefs")
+      .upsert({ user_id: userId, ...prefs, ...next });
+    if (error) {
+      toast.error("Couldn't save reminder settings.");
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["reminder-prefs", userId] });
+    toast.success("Reminders updated 🔔");
+  }
+
+  return (
+    <section className="glass mt-8 rounded-2xl p-4 ring-1 ring-border">
+      <h2 className="text-lg font-medium tracking-tight">Birthday reminders</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Get alerted ahead of every friend's birthday, every year.
+      </p>
+      <p className="mt-4 font-mono text-[10px] tracking-[0.15em] text-muted-foreground uppercase">
+        Remind me {prefs.lead_weeks} week{prefs.lead_weeks > 1 ? "s" : ""} before
+      </p>
+      <div className="mt-2 grid grid-cols-4 gap-1">
+        {[1, 2, 4, 6].map((w) => (
+          <button
+            key={w}
+            onClick={() => update({ lead_weeks: w })}
+            className={`rounded-lg py-2 text-xs font-medium ring-1 ${
+              prefs.lead_weeks === w
+                ? "bg-primary text-primary-foreground ring-primary"
+                : "bg-secondary/60 ring-border"
+            }`}
+          >
+            {w} wk
+          </button>
+        ))}
+      </div>
+      <label className="mt-4 flex items-center justify-between gap-3">
+        <span className="text-sm">Also email me</span>
+        <input
+          type="checkbox"
+          checked={prefs.email_enabled}
+          onChange={(e) => update({ email_enabled: e.target.checked })}
+          className="h-5 w-5 accent-primary"
+        />
+      </label>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        In-app alerts are on. Email alerts start once the app's sending address is set up.
+      </p>
+    </section>
   );
 }

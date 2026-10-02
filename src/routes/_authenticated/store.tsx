@@ -222,7 +222,32 @@ function StorePage() {
           </section>
         )}
 
-        <section className="mt-5 grid grid-cols-2 gap-2">
+        <div className="mt-5 flex items-center gap-2 rounded-xl bg-secondary/50 px-3 py-2 ring-1 ring-border">
+          <span className="font-mono text-primary">/</span>
+          <input
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="Search books, toys, gadgets…"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
+          {categories.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCat(c)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium capitalize ring-1 ${
+                cat === c
+                  ? "bg-primary text-primary-foreground ring-primary"
+                  : "bg-card text-muted-foreground ring-border"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        <section className="mt-3 grid grid-cols-2 gap-2">
           {shown.map((p) => {
             const match = recipient ? wishMatch(p) : null;
             return (
@@ -250,7 +275,7 @@ function StorePage() {
           })}
           {shown.length === 0 && (
             <p className="col-span-2 rounded-xl bg-card p-4 text-sm text-muted-foreground ring-1 ring-border">
-              No items match their wishlist — turn the filter off to see everything.
+              Nothing matches — try another category or turn the wishlist filter off.
             </p>
           )}
         </section>

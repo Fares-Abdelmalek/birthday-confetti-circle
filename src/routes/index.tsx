@@ -20,7 +20,7 @@ import {
   type Profile,
 } from "@/lib/birthday";
 
-const REMINDER_WINDOW = 7;
+import { DEFAULT_PREFS, useReminderPrefs } from "@/lib/reminders";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -52,6 +52,9 @@ function Home() {
   const [tab, setTab] = useState<Tab>("today");
   const [monthIndex, setMonthIndex] = useState(new Date().getMonth() + 1);
   const [giftTo, setGiftTo] = useState<Profile | null>(null);
+  const { data: prefs } = useReminderPrefs(user?.id);
+  const REMINDER_WINDOW = (prefs ?? DEFAULT_PREFS).lead_weeks * 7;
+
 
   const { data: people, isLoading } = useQuery({
     queryKey: ["people"],
@@ -168,7 +171,7 @@ function Home() {
               {(
                 [
                   ["today", "Today"],
-                  ["upcoming", "Next 7 days"],
+                  ["upcoming", `Next ${REMINDER_WINDOW / 7} wk`],
                   ["month", "By month"],
                 ] as [Tab, string][]
               ).map(([id, label]) => (
