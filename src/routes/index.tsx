@@ -171,7 +171,7 @@ function Home() {
               {(
                 [
                   ["today", "Today"],
-                  ["upcoming", "Next 7 days"],
+                  ["upcoming", `Next ${REMINDER_WINDOW / 7} wk`],
                   ["month", "By month"],
                 ] as [Tab, string][]
               ).map(([id, label]) => (
