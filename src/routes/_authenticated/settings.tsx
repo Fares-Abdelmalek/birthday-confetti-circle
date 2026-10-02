@@ -223,6 +223,8 @@ function SettingsPage() {
           </button>
         </form>
 
+        {user && <ReminderSettings userId={user.id} />}
+
         <section className="mt-8">
           <h2 className="text-lg font-medium tracking-tight">Wishlist</h2>
           <p className="mt-1 text-xs text-muted-foreground">
