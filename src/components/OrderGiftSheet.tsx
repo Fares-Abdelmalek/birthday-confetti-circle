@@ -15,8 +15,10 @@ export type GiftProduct = {
 };
 
 export function money(cents: number, currency = "usd") {
-  const symbol = currency.toLowerCase() === "eur" ? "€" : "$";
-  return `${symbol}${(cents / 100).toFixed(2)}`;
+  const c = currency.toLowerCase();
+  if (c === "usd") return `$${(cents / 100).toFixed(2)}`;
+  if (c === "eur") return `€${(cents / 100).toFixed(2)}`;
+  return `${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })} ${currency.toUpperCase()}`;
 }
 
 export function OrderGiftSheet({

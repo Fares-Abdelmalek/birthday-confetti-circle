@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { isCartCompleted } from "@/lib/shopify";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
@@ -45,6 +46,9 @@ type OrderRow = {
   sender_id: string;
   recipient_id: string;
   product_id: string | null;
+  product_title: string | null;
+  product_emoji: string | null;
+  shopify_cart_id: string | null;
 };
 
 function dateLabel(iso: string) {
@@ -81,16 +85,40 @@ function OrdersPage() {
   const { data } = useQuery({
     queryKey: ["gift-orders", user?.id],
     enabled: !!user?.id,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("gift_orders")
         .select(
-          "id, status, amount_cents, currency, quantity, ship_to_name, city, country, message, created_at, card_last4, tracking_code, sender_id, recipient_id, product_id",
+          "id, status, amount_cents, currency, quantity, ship_to_name, city, country, message, created_at, card_last4, tracking_code, sender_id, recipient_id, product_id, product_title, product_emoji, shopify_cart_id",
         )
         .or(`sender_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       const orders = (rows ?? []) as OrderRow[];
+
+      // Confirm Shopify payments: a cart disappears once its checkout is paid.
+      const pending = [
+        ...new Set(
+          orders
+            .filter((o) => o.status === "awaiting_payment" && o.sender_id === user!.id && o.shopify_cart_id)
+            .map((o) => o.shopify_cart_id!),
+        ),
+      ];
+      for (const cartId of pending) {
+        const completed = await isCartCompleted(cartId).catch(() => null);
+        if (completed) {
+          const paidAt = new Date().toISOString();
+          await supabase
+            .from("gift_orders")
+            .update({ status: "paid", paid_at: paidAt })
+            .eq("shopify_cart_id", cartId)
+            .eq("status", "awaiting_payment");
+          orders.forEach((o) => {
+            if (o.shopify_cart_id === cartId && o.status === "awaiting_payment") o.status = "paid";
+          });
+        }
+      }
 
       const productIds = [...new Set(orders.map((o) => o.product_id).filter(Boolean))] as string[];
       const peopleIds = [...new Set(orders.flatMap((o) => [o.sender_id, o.recipient_id]))];
@@ -110,8 +138,8 @@ function OrdersPage() {
         const prod = (products.data ?? []).find((p) => p.id === o.product_id);
         return {
           ...o,
-          productName: prod?.name ?? "Gift",
-          emoji: prod?.emoji ?? "🎁",
+          productName: o.product_title ?? prod?.name ?? "Gift",
+          emoji: o.product_emoji ?? prod?.emoji ?? "🎁",
           senderName: nameOf(o.sender_id),
           recipientName: nameOf(o.recipient_id),
         };
