@@ -6,7 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { AppHeader } from "@/components/AppHeader";
 import { PersonAvatar } from "@/components/Avatar";
-import { money, type GiftProduct } from "@/components/OrderGiftSheet";
+import type { GiftProduct } from "@/components/OrderGiftSheet";
+import { categoryEmoji, fetchProducts, formatMoney } from "@/lib/shopify";
+
+const money = (cents: number, currency = "DZD") => formatMoney(cents / 100, currency);
 import { useCart } from "@/lib/cart";
 import { birthdayLabel, displayName, type Profile } from "@/lib/birthday";
 
@@ -41,16 +44,26 @@ function StorePage() {
   const [cat, setCat] = useState("all");
   const [term, setTerm] = useState("");
 
-  const { data: products } = useQuery({
-    queryKey: ["gift-products"],
+  const { data: products, isLoading: loadingProducts } = useQuery({
+    queryKey: ["shopify-products"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("gift_products")
-        .select("id, name, description, emoji, price_cents, currency, category")
-        .eq("active", true)
-        .order("price_cents", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as GiftProduct[];
+      const edges = await fetchProducts(50);
+      return edges
+        .map(({ node }): GiftProduct | null => {
+          const v = node.variants.edges[0]?.node;
+          if (!v) return null;
+          return {
+            id: v.id,
+            name: node.title,
+            description: node.description,
+            emoji: categoryEmoji(node.productType),
+            price_cents: Math.round(parseFloat(v.price.amount) * 100),
+            currency: v.price.currencyCode,
+            category: node.productType.toLowerCase() || "other",
+          };
+        })
+        .filter((p): p is GiftProduct => !!p)
+        .sort((a, b) => a.price_cents - b.price_cents);
     },
   });
 
