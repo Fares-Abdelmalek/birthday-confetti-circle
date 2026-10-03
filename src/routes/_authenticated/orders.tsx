@@ -85,7 +85,7 @@ function OrdersPage() {
       const { data: rows, error } = await supabase
         .from("gift_orders")
         .select(
-          "id, status, amount_cents, currency, quantity, ship_to_name, city, country, message, created_at, card_last4, tracking_code, sender_id, recipient_id, product_id",
+          "id, status, amount_cents, currency, quantity, ship_to_name, city, country, message, created_at, card_last4, tracking_code, sender_id, recipient_id, product_id, product_title, product_emoji, shopify_cart_id",
         )
         .or(`sender_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
         .order("created_at", { ascending: false });
@@ -110,8 +110,8 @@ function OrdersPage() {
         const prod = (products.data ?? []).find((p) => p.id === o.product_id);
         return {
           ...o,
-          productName: prod?.name ?? "Gift",
-          emoji: prod?.emoji ?? "🎁",
+          productName: o.product_title ?? prod?.name ?? "Gift",
+          emoji: o.product_emoji ?? prod?.emoji ?? "🎁",
           senderName: nameOf(o.sender_id),
           recipientName: nameOf(o.recipient_id),
         };

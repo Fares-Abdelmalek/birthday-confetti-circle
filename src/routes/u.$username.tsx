@@ -94,7 +94,7 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("gift_orders")
-        .select("id, status, quantity, message, created_at, sender_id, product_id")
+        .select("id, status, quantity, message, created_at, sender_id, product_id, product_title, product_emoji")
         .eq("recipient_id", profile!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -116,8 +116,8 @@ function ProfilePage() {
         const s = (senders.data ?? []).find((x) => x.id === r.sender_id);
         return {
           ...r,
-          productName: p?.name ?? "Gift",
-          emoji: p?.emoji ?? "🎁",
+          productName: r.product_title ?? p?.name ?? "Gift",
+          emoji: r.product_emoji ?? p?.emoji ?? "🎁",
           senderName: s?.full_name || s?.username || "a friend",
         };
       });
