@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -29,11 +29,15 @@ export type Database = {
           order_group_id: string | null
           paid_at: string | null
           postal_code: string
+          product_emoji: string | null
           product_id: string | null
+          product_title: string | null
           quantity: number
           recipient_id: string
           sender_id: string
           ship_to_name: string
+          shopify_cart_id: string | null
+          shopify_variant_id: string | null
           status: string
           tracking_code: string | null
           updated_at: string
@@ -53,11 +57,15 @@ export type Database = {
           order_group_id?: string | null
           paid_at?: string | null
           postal_code: string
+          product_emoji?: string | null
           product_id?: string | null
+          product_title?: string | null
           quantity?: number
           recipient_id: string
           sender_id: string
           ship_to_name: string
+          shopify_cart_id?: string | null
+          shopify_variant_id?: string | null
           status?: string
           tracking_code?: string | null
           updated_at?: string
@@ -77,11 +85,15 @@ export type Database = {
           order_group_id?: string | null
           paid_at?: string | null
           postal_code?: string
+          product_emoji?: string | null
           product_id?: string | null
+          product_title?: string | null
           quantity?: number
           recipient_id?: string
           sender_id?: string
           ship_to_name?: string
+          shopify_cart_id?: string | null
+          shopify_variant_id?: string | null
           status?: string
           tracking_code?: string | null
           updated_at?: string
