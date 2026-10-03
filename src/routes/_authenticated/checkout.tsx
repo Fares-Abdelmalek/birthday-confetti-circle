@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { AppHeader } from "@/components/AppHeader";
 import { Confetti } from "@/components/Confetti";
-import { money } from "@/components/OrderGiftSheet";
+import { createShopifyCart, formatMoney } from "@/lib/shopify";
+
+const money = (cents: number, currency = "DZD") => formatMoney(cents / 100, currency);
 import { useCart, type CartLine } from "@/lib/cart";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
@@ -55,13 +57,12 @@ const label = "font-mono text-[10px] tracking-[0.15em] text-muted-foreground upp
 
 function CheckoutPage() {
   const { user } = useSession();
-  const { lines, totalCents, setQty, remove, clear } = useCart();
+  const { lines, setQty, remove } = useCart();
   const qc = useQueryClient();
   const navigate = useNavigate();
 
   const [addresses, setAddresses] = useState<Record<string, Address>>({});
-  const [card, setCard] = useState({ number: "", exp: "", cvc: "" });
-  const [paying, setPaying] = useState(false);
+  const [paying, setPaying] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const groups = useMemo(() => {
@@ -87,59 +88,68 @@ function CheckoutPage() {
       [recipientId]: { ...addressFor(recipientId, name), [key]: value },
     }));
 
-  const digits = card.number.replace(/\D/g, "");
-
-  async function pay() {
+  async function pay(g: (typeof groups)[number]) {
     if (!user) return;
-    for (const g of groups) {
-      const a = addressFor(g.recipientId, g.recipientName);
-      if (!a.address_line1.trim() || !a.city.trim() || !a.country.trim()) {
-        toast.error(`Add a delivery address for ${g.recipientName}.`);
-        return;
-      }
-    }
-    if (digits.length < 12 || !card.exp.trim() || card.cvc.trim().length < 3) {
-      toast.error("Enter complete card details.");
+    const a = addressFor(g.recipientId, g.recipientName);
+    if (!a.address_line1.trim() || !a.city.trim() || !a.country.trim()) {
+      toast.error(`Add a delivery address for ${g.recipientName}.`);
       return;
     }
-
-    setPaying(true);
+    setPaying(g.recipientId);
+    const note = `Birthday gift for ${g.recipientName}${a.message.trim() ? ` — "${a.message.trim()}"` : ""}`;
+    let cart: Awaited<ReturnType<typeof createShopifyCart>> = null;
+    try {
+      cart = await createShopifyCart(
+        g.items.map((i) => ({ variantId: i.productId, quantity: i.qty })),
+        note,
+        [
+          { key: "Gift recipient", value: g.recipientName },
+          { key: "Ship to", value: `${a.ship_to_name}, ${a.address_line1}, ${a.city} ${a.postal_code}, ${a.country}` },
+        ],
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    if (!cart) {
+      setPaying(null);
+      toast.error("Couldn't start the secure checkout. Please try again.");
+      return;
+    }
     const groupId = crypto.randomUUID();
-    const last4 = digits.slice(-4);
-    const rows = groups.flatMap((g) => {
-      const a = addressFor(g.recipientId, g.recipientName);
-      return g.items.map((item) => ({
-        sender_id: user.id,
-        recipient_id: g.recipientId,
-        product_id: item.productId,
-        wishlist_item_id: item.wishlistItemId,
-        quantity: item.qty,
-        message: a.message.trim() || null,
-        ship_to_name: a.ship_to_name.trim() || g.recipientName,
-        address_line1: a.address_line1.trim(),
-        address_line2: a.address_line2.trim() || null,
-        city: a.city.trim(),
-        postal_code: a.postal_code.trim(),
-        country: a.country.trim(),
-        amount_cents: item.priceCents * item.qty,
-        currency: item.currency,
-        order_group_id: groupId,
-        status: "paid",
-        paid_at: new Date().toISOString(),
-        card_last4: last4,
-      }));
-    });
-
+    const rows = g.items.map((item) => ({
+      sender_id: user.id,
+      recipient_id: g.recipientId,
+      product_id: null,
+      product_title: item.name,
+      product_emoji: item.emoji,
+      shopify_variant_id: item.productId,
+      shopify_cart_id: cart!.cartId,
+      wishlist_item_id: item.wishlistItemId,
+      quantity: item.qty,
+      message: a.message.trim() || null,
+      ship_to_name: a.ship_to_name.trim() || g.recipientName,
+      address_line1: a.address_line1.trim(),
+      address_line2: a.address_line2.trim() || null,
+      city: a.city.trim(),
+      postal_code: a.postal_code.trim(),
+      country: a.country.trim(),
+      amount_cents: item.priceCents * item.qty,
+      currency: item.currency,
+      order_group_id: groupId,
+      status: "awaiting_payment",
+    }));
     const { error } = await supabase.from("gift_orders").insert(rows);
-    setPaying(false);
+    setPaying(null);
     if (error) {
-      toast.error("Payment couldn't be completed — check the details and try again.");
+      console.error(error);
+      toast.error("Couldn't save the order.");
       return;
     }
-    setDone(true);
-    clear();
+    window.open(cart.checkoutUrl, "_blank");
+    g.items.forEach((i) => remove(i.key));
     qc.invalidateQueries({ queryKey: ["gift-orders", user.id] });
-    toast.success("Paid — your gifts are on the way 🎁");
+    setDone(true);
+    toast.success("Secure checkout opened — the order turns paid once Shopify confirms it.");
     setTimeout(() => navigate({ to: "/orders" }), 1600);
   }
 
@@ -294,65 +304,22 @@ function CheckoutPage() {
                   className={`${field} resize-none`}
                 />
               </label>
+              <button
+                onClick={() => pay(g)}
+                disabled={paying !== null}
+                className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {paying === g.recipientId
+                  ? "Opening secure checkout…"
+                  : `Pay ${money(g.items.reduce((n, i) => n + i.priceCents * i.qty, 0), g.items[0]?.currency)}`}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                Card payment happens on Shopify's secure checkout in a new tab.
+              </p>
             </section>
           );
         })}
 
-        {lines.length > 0 && (
-          <section className="mt-5 rounded-2xl bg-card p-4 ring-1 ring-border">
-            <h2 className="text-sm font-semibold">Payment</h2>
-            <label className="mt-3 block">
-              <span className={label}>Card number</span>
-              <input
-                value={card.number}
-                inputMode="numeric"
-                placeholder="4242 4242 4242 4242"
-                onChange={(e) => setCard((c) => ({ ...c, number: e.target.value.slice(0, 23) }))}
-                className={field}
-              />
-            </label>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="block">
-                <span className={label}>Expiry</span>
-                <input
-                  value={card.exp}
-                  placeholder="MM/YY"
-                  onChange={(e) => setCard((c) => ({ ...c, exp: e.target.value.slice(0, 5) }))}
-                  className={field}
-                />
-              </label>
-              <label className="block">
-                <span className={label}>CVC</span>
-                <input
-                  value={card.cvc}
-                  inputMode="numeric"
-                  placeholder="123"
-                  onChange={(e) => setCard((c) => ({ ...c, cvc: e.target.value.slice(0, 4) }))}
-                  className={field}
-                />
-              </label>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary/40 px-3 py-2 text-sm ring-1 ring-border">
-              <span className="text-muted-foreground">Total</span>
-              <span className="font-mono text-primary">
-                {money(totalCents, lines[0]?.currency ?? "usd")}
-              </span>
-            </div>
-
-            <button
-              onClick={pay}
-              disabled={paying}
-              className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-            >
-              {paying ? "Processing…" : `Pay ${money(totalCents, lines[0]?.currency ?? "usd")}`}
-            </button>
-            <p className="mt-2 text-center text-[11px] text-muted-foreground">
-              Live card processing isn't switched on yet, so payments run in test mode — orders are
-              created and tracked as paid.
-            </p>
-          </section>
-        )}
       </div>
     </main>
   );
